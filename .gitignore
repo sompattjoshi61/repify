@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.next/
+frontend/.next/
+
+# Environment files (never commit these)
+.env
+.env.local
+*.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+backend/venv/
+
+# Temp files
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Qdrant data
+qdrant_storage/

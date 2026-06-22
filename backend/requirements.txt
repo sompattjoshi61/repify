@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+openai
+qdrant-client
+gitpython
+tree-sitter==0.21.3
+tree-sitter-languages
+python-multipart
+python-dotenv
+Pillow
+httpx
