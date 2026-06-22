@@ -15,25 +15,21 @@ export default function RepoInput({ onIndexed, isIndexing, setIsIndexing }: Prop
   const handleIndex = async () => {
     if (!url.trim()) return;
     if (!url.includes("github.com")) {
-      setError("Please enter a valid GitHub URL");
+      setError("Enter a valid GitHub URL");
       return;
     }
-
     setError("");
     setIsIndexing(true);
-
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ingest`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repo_url: url }),
       });
-
-      if (!res.ok) throw new Error("Failed to index repository");
-
+      if (!res.ok) throw new Error("Failed");
       onIndexed(url);
-    } catch (err) {
-      setError("Failed to index. Make sure the backend is running.");
+    } catch {
+      setError("Failed to index. Is the backend running?");
     } finally {
       setIsIndexing(false);
     }
@@ -41,22 +37,55 @@ export default function RepoInput({ onIndexed, isIndexing, setIsIndexing }: Prop
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-white font-semibold text-sm">Index a Repository</h2>
+      <p style={{ color: "#ffffff", fontSize: "11px", letterSpacing: "0.12em", fontWeight: 600 }} className="uppercase">Index Repository</p>
       <input
         type="text"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && handleIndex()}
         placeholder="https://github.com/user/repo"
-        className="bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 placeholder-gray-500 focus:outline-none focus:border-blue-500"
+        style={{
+          backgroundColor: "#111",
+          border: "1px solid #555",
+          color: "#ffffff",
+          fontSize: "12px",
+          padding: "10px 12px",
+          outline: "none",
+          fontFamily: "'JetBrains Mono', monospace",
+          width: "100%",
+        }}
+        onFocus={e => (e.target.style.borderColor = "#ffffff")}
+        onBlur={e => (e.target.style.borderColor = "#555")}
       />
-      {error && <p className="text-red-400 text-xs">{error}</p>}
+      {error && <p style={{ color: "#ff6b6b", fontSize: "11px" }}>{error}</p>}
       <button
         onClick={handleIndex}
         disabled={isIndexing || !url.trim()}
-        className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+        style={{
+          border: "1px solid",
+          borderColor: isIndexing || !url.trim() ? "#333" : "#ffffff",
+          color: isIndexing || !url.trim() ? "#444" : "#ffffff",
+          backgroundColor: "transparent",
+          fontSize: "11px",
+          fontWeight: "700",
+          padding: "10px",
+          letterSpacing: "0.08em",
+          cursor: isIndexing || !url.trim() ? "not-allowed" : "pointer",
+          fontFamily: "'JetBrains Mono', monospace",
+          transition: "all 0.2s",
+        }}
+        onMouseEnter={e => {
+          if (!isIndexing && url.trim()) {
+            (e.target as HTMLButtonElement).style.backgroundColor = "#ffffff";
+            (e.target as HTMLButtonElement).style.color = "#000000";
+          }
+        }}
+        onMouseLeave={e => {
+          (e.target as HTMLButtonElement).style.backgroundColor = "transparent";
+          (e.target as HTMLButtonElement).style.color = isIndexing || !url.trim() ? "#444" : "#ffffff";
+        }}
       >
-        {isIndexing ? "Indexing..." : "Index Repository"}
+        {isIndexing ? "INDEXING..." : "INDEX REPOSITORY →"}
       </button>
     </div>
   );

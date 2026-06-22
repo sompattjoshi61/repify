@@ -11,6 +11,13 @@ interface Props {
   indexedRepo: string | null;
 }
 
+const SUGGESTIONS = [
+  "How does authentication work?",
+  "Where is the payment integration?",
+  "Explain the folder structure",
+  "Which API handles user login?",
+];
+
 export default function ChatWindow({ indexedRepo }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -21,11 +28,11 @@ export default function ChatWindow({ indexedRepo }: Props) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
+  const sendMessage = async (text?: string) => {
+    const question = text || input;
+    if (!question.trim() || loading) return;
 
-    const userMessage: Message = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => [...prev, { role: "user", content: question }]);
     setInput("");
     setLoading(true);
 
@@ -33,32 +40,59 @@ export default function ChatWindow({ indexedRepo }: Props) {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: input, repo_url: indexedRepo }),
+        body: JSON.stringify({ question, repo_url: indexedRepo }),
       });
-
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Error: Could not connect to backend. Make sure it is running." }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "Error: Could not connect to backend." }]);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#000", fontFamily: "'JetBrains Mono', monospace" }}>
+
+      {/* Messages area */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <p className="text-gray-500 text-lg mb-4">
-              {indexedRepo ? "Repository indexed. Ask anything!" : "Index a repository to get started."}
-            </p>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: "24px", textAlign: "center" }}>
+            <div>
+              <p style={{ color: "#888", fontSize: "10px", letterSpacing: "0.15em", marginBottom: "8px" }}>REPIFY</p>
+              <p style={{ color: "#cccccc", fontSize: "13px" }}>
+                {indexedRepo ? "Repository indexed. Ask anything about the code." : "Index a repository from the sidebar to get started."}
+              </p>
+            </div>
             {indexedRepo && (
-              <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                {["How does authentication work?", "Where is the payment integration?", "Explain the folder structure", "Which API handles user login?"].map((q) => (
-                  <button key={q} onClick={() => setInput(q)} className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 text-sm px-3 py-1.5 rounded-full transition-colors">
-                    {q}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", maxWidth: "500px", width: "100%" }}>
+                {SUGGESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => sendMessage(q)}
+                    style={{
+                      border: "1px solid #444",
+                      backgroundColor: "transparent",
+                      color: "#cccccc",
+                      fontSize: "11px",
+                      padding: "12px 14px",
+                      textAlign: "left",
+                      cursor: "pointer",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#ffffff";
+                      (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
+                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#111";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#444";
+                      (e.currentTarget as HTMLButtonElement).style.color = "#cccccc";
+                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
+                    }}
+                  >
+                    <span style={{ color: "#333", marginRight: "8px" }}>›</span>{q}
                   </button>
                 ))}
               </div>
@@ -67,34 +101,39 @@ export default function ChatWindow({ indexedRepo }: Props) {
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-2xl px-4 py-3 rounded-xl text-sm leading-relaxed whitespace-pre-wrap ${
-              msg.role === "user"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-800 border border-gray-700 text-gray-200"
-            }`}>
+          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: msg.role === "user" ? "flex-end" : "flex-start", gap: "4px" }}>
+            <span style={{ fontSize: "10px", color: "#888", letterSpacing: "0.1em", textTransform: "uppercase", paddingLeft: "2px" }}>
+              {msg.role === "user" ? "YOU" : "REPIFY"}
+            </span>
+            <div style={{
+              maxWidth: "640px",
+              fontSize: "12px",
+              lineHeight: "1.8",
+              whiteSpace: "pre-wrap",
+              padding: "12px 16px",
+              backgroundColor: msg.role === "user" ? "#ffffff" : "#0d0d0d",
+              color: msg.role === "user" ? "#000000" : "#ffffff",
+              border: msg.role === "assistant" ? "1px solid #444" : "none",
+            }}>
               {msg.content}
             </div>
           </div>
         ))}
 
         {loading && (
-          <div className="flex justify-start">
-            <div className="bg-gray-800 border border-gray-700 px-4 py-3 rounded-xl">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
-              </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" }}>
+            <span style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em", textTransform: "uppercase" }}>REPIFY</span>
+            <div style={{ border: "1px solid #2a2a2a", backgroundColor: "#0d0d0d", padding: "12px 16px" }}>
+              <span style={{ color: "#555", fontSize: "12px" }}>thinking<span className="animate-pulse">...</span></span>
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-gray-800 p-4">
-        <div className="flex gap-3">
+      {/* Input bar */}
+      <div style={{ borderTop: "1px solid #222", padding: "16px", backgroundColor: "#000" }}>
+        <div style={{ display: "flex", gap: "8px" }}>
           <input
             type="text"
             value={input}
@@ -102,14 +141,38 @@ export default function ChatWindow({ indexedRepo }: Props) {
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             placeholder={indexedRepo ? "Ask anything about the codebase..." : "Index a repository first..."}
             disabled={!indexedRepo}
-            className="flex-1 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-4 py-3 placeholder-gray-500 focus:outline-none focus:border-blue-500 disabled:opacity-50"
+            style={{
+              flex: 1,
+              backgroundColor: "#0d0d0d",
+              border: "1px solid #333",
+              color: "#ffffff",
+              fontSize: "12px",
+              padding: "12px 16px",
+              outline: "none",
+              fontFamily: "'JetBrains Mono', monospace",
+              opacity: indexedRepo ? 1 : 0.4,
+            }}
+            onFocus={e => (e.target.style.borderColor = "#666")}
+            onBlur={e => (e.target.style.borderColor = "#333")}
           />
           <button
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={!input.trim() || loading || !indexedRepo}
-            className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white px-5 py-3 rounded-lg transition-colors font-medium text-sm"
+            style={{
+              backgroundColor: input.trim() && !loading && indexedRepo ? "#ffffff" : "transparent",
+              border: "1px solid",
+              borderColor: input.trim() && !loading && indexedRepo ? "#ffffff" : "#333",
+              color: input.trim() && !loading && indexedRepo ? "#000000" : "#444",
+              fontSize: "11px",
+              fontWeight: "700",
+              padding: "12px 20px",
+              letterSpacing: "0.08em",
+              cursor: input.trim() && !loading && indexedRepo ? "pointer" : "not-allowed",
+              fontFamily: "'JetBrains Mono', monospace",
+              transition: "all 0.2s",
+            }}
           >
-            Send
+            SEND
           </button>
         </div>
       </div>
