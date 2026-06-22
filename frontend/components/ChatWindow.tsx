@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import { saveConversation, Message } from "@/lib/supabase";
 
 interface Props {
   indexedRepo: string | null;
+  userId: string;
+  activeConversationId: string | null;
+  setActiveConversationId: (id: string | null) => void;
+  initialMessages?: Message[];
+  onNewMessage: () => void;
 }
 
 const SUGGESTIONS = [
@@ -18,11 +19,25 @@ const SUGGESTIONS = [
   "Which API handles user login?",
 ];
 
-export default function ChatWindow({ indexedRepo }: Props) {
-  const [messages, setMessages] = useState<Message[]>([]);
+export default function ChatWindow({
+  indexedRepo,
+  userId,
+  activeConversationId,
+  setActiveConversationId,
+  initialMessages = [],
+  onNewMessage,
+}: Props) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const convIdRef = useRef<string | null>(activeConversationId);
+
+  // Restore conversation when initialMessages changes
+  useEffect(() => {
+    setMessages(initialMessages);
+    convIdRef.current = activeConversationId;
+  }, [initialMessages, activeConversationId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -32,7 +47,8 @@ export default function ChatWindow({ indexedRepo }: Props) {
     const question = text || input;
     if (!question.trim() || loading) return;
 
-    setMessages((prev) => [...prev, { role: "user", content: question }]);
+    const updatedMessages: Message[] = [...messages, { role: "user", content: question }];
+    setMessages(updatedMessages);
     setInput("");
     setLoading(true);
 
@@ -43,7 +59,18 @@ export default function ChatWindow({ indexedRepo }: Props) {
         body: JSON.stringify({ question, repo_url: indexedRepo }),
       });
       const data = await res.json();
-      setMessages((prev) => [...prev, { role: "assistant", content: data.answer }]);
+      const finalMessages: Message[] = [...updatedMessages, { role: "assistant", content: data.answer }];
+      setMessages(finalMessages);
+
+      // Save to Supabase
+      const savedId = await saveConversation(userId, indexedRepo, finalMessages, convIdRef.current || undefined);
+      if (savedId && !convIdRef.current) {
+        convIdRef.current = savedId;
+        setActiveConversationId(savedId);
+        onNewMessage();
+      } else {
+        onNewMessage();
+      }
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", content: "Error: Could not connect to backend." }]);
     } finally {
@@ -51,15 +78,53 @@ export default function ChatWindow({ indexedRepo }: Props) {
     }
   };
 
+  const startNewChat = () => {
+    setMessages([]);
+    convIdRef.current = null;
+    setActiveConversationId(null);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", backgroundColor: "#000", fontFamily: "'JetBrains Mono', monospace" }}>
+
+      {/* Top bar */}
+      <div style={{ borderBottom: "1px solid #222", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <p style={{ color: "#555", fontSize: "11px" }}>
+          {indexedRepo ? indexedRepo : "No repository indexed"}
+        </p>
+        {messages.length > 0 && (
+          <button
+            onClick={startNewChat}
+            style={{
+              border: "1px solid #333",
+              backgroundColor: "transparent",
+              color: "#888",
+              fontSize: "10px",
+              padding: "4px 10px",
+              cursor: "pointer",
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: "0.08em",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget).style.borderColor = "#fff";
+              (e.currentTarget).style.color = "#fff";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget).style.borderColor = "#333";
+              (e.currentTarget).style.color = "#888";
+            }}
+          >
+            + NEW CHAT
+          </button>
+        )}
+      </div>
 
       {/* Messages area */}
       <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
         {messages.length === 0 && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: "24px", textAlign: "center" }}>
             <div>
-              <p style={{ color: "#888", fontSize: "10px", letterSpacing: "0.15em", marginBottom: "8px" }}>REPIFY</p>
+              <p style={{ color: "#555", fontSize: "10px", letterSpacing: "0.15em", marginBottom: "8px" }}>REPIFY</p>
               <p style={{ color: "#cccccc", fontSize: "13px" }}>
                 {indexedRepo ? "Repository indexed. Ask anything about the code." : "Index a repository from the sidebar to get started."}
               </p>
@@ -82,17 +147,17 @@ export default function ChatWindow({ indexedRepo }: Props) {
                       transition: "all 0.2s",
                     }}
                     onMouseEnter={e => {
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#ffffff";
-                      (e.currentTarget as HTMLButtonElement).style.color = "#ffffff";
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#111";
+                      (e.currentTarget).style.borderColor = "#ffffff";
+                      (e.currentTarget).style.color = "#ffffff";
+                      (e.currentTarget).style.backgroundColor = "#111";
                     }}
                     onMouseLeave={e => {
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = "#444";
-                      (e.currentTarget as HTMLButtonElement).style.color = "#cccccc";
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent";
+                      (e.currentTarget).style.borderColor = "#444";
+                      (e.currentTarget).style.color = "#cccccc";
+                      (e.currentTarget).style.backgroundColor = "transparent";
                     }}
                   >
-                    <span style={{ color: "#333", marginRight: "8px" }}>›</span>{q}
+                    <span style={{ color: "#444", marginRight: "8px" }}>›</span>{q}
                   </button>
                 ))}
               </div>
@@ -122,9 +187,9 @@ export default function ChatWindow({ indexedRepo }: Props) {
 
         {loading && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "4px" }}>
-            <span style={{ fontSize: "10px", color: "#444", letterSpacing: "0.1em", textTransform: "uppercase" }}>REPIFY</span>
-            <div style={{ border: "1px solid #2a2a2a", backgroundColor: "#0d0d0d", padding: "12px 16px" }}>
-              <span style={{ color: "#555", fontSize: "12px" }}>thinking<span className="animate-pulse">...</span></span>
+            <span style={{ fontSize: "10px", color: "#888", letterSpacing: "0.1em", textTransform: "uppercase" }}>REPIFY</span>
+            <div style={{ border: "1px solid #333", backgroundColor: "#0d0d0d", padding: "12px 16px" }}>
+              <span style={{ color: "#555", fontSize: "12px" }}>thinking...</span>
             </div>
           </div>
         )}
