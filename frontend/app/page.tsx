@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 
 export default function Home() {
+  const { isSignedIn } = useAuth();
   return (
     <main className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-4">
       {/* Hero */}
@@ -22,19 +23,20 @@ export default function Home() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <SignedOut>
-            <Link href="/sign-up" className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-lg transition-colors text-lg">
-              Get Started Free
-            </Link>
-            <Link href="/sign-in" className="border border-gray-700 hover:border-gray-500 text-gray-300 font-semibold px-8 py-3 rounded-lg transition-colors text-lg">
-              Sign In
-            </Link>
-          </SignedOut>
-          <SignedIn>
+          {isSignedIn ? (
             <Link href="/dashboard" className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-lg transition-colors text-lg">
               Go to Dashboard
             </Link>
-          </SignedIn>
+          ) : (
+            <>
+              <Link href="/sign-up" className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-lg transition-colors text-lg">
+                Get Started Free
+              </Link>
+              <Link href="/sign-in" className="border border-gray-700 hover:border-gray-500 text-gray-300 font-semibold px-8 py-3 rounded-lg transition-colors text-lg">
+                Sign In
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
